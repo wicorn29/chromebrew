@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Chromebrew Loader</title>
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js"></script>
+<style>
+body{font-family:sans-serif;margin:2em;background:#222;color:#fff;text-align:center}
+button{padding:.5em 1em;cursor:pointer;margin-top:0.5em}
+.emergency{border:2px solid red;background:#400;color:#fff;padding:1em;display:inline-block;text-align:left;max-width:400px;margin-top:1em}
+.update{border:2px solid yellow;background:#440;color:#fff;padding:1em;display:inline-block;text-align:left;max-width:400px;margin-bottom:1em}
+a{color:#0af}
+</style>
+</head>
+<body>
+<div id="message">Decrypting your data, please wait...</div>
+<script>
+(async function(){
+  const message = document.getElementById('message');
+  setTimeout(async ()=>{
+    const compressed = localStorage.getItem('chromebrew_sysrom');
+    if(!compressed){
+      message.innerHTML = `
+        Chromebrew is missing or damaged.<br>
+        Please re-install Chromebrew using the installer at 
+        <a href="https://github.com/wicorn29/chromebrew" target="_blank">wicorn29/chromebrew</a>.
+      `;
+      return;
+    }
+
+    const decoded = LZString.decompressFromUTF16(compressed);
+    if(!decoded){
+      message.innerHTML = `
+        Chromebrew is missing or damaged.<br>
+        Please re-install Chromebrew using the installer at 
+        <a href="https://github.com/wicorn29/chromebrew" target="_blank">wicorn29/chromebrew</a>.
+        <div class="emergency">
+          <strong>Emergency Uninstall</strong><br>
+          Failed to decode Chromebrew data.<br>
+          The Chromebrew installer will not overwrite an existing install,<br>
+          so this option lets you remove the corrupted installation.<br>
+          Your Chromebrew apps/programs and their data will be erased.<br>
+          <button id="uninstall">Uninstall Corrupt Chromebrew</button>
+        </div>
+      `;
+      document.getElementById('uninstall').onclick = ()=>{
+        localStorage.clear();
+        message.innerHTML = 'All local storage cleared. You can now reinstall Chromebrew.';
+      };
+      return;
+    }
+
+    // Decode succeeded → check for updates
+    try {
+      const localVer = parseInt(localStorage.getItem('chromebrew_version')||"0",10);
+      const res = await fetch('https://raw.githubusercontent.com/wicorn29/chromebrew/refs/heads/main/versionresourcelocation');
+      const remoteVer = parseInt(await res.text(),10);
+      if(remoteVer > localVer){
+        message.innerHTML = `
+          <div class="update">
+            A new Chromebrew update is available!<br>
+            Please go to <a href="https://github.com/wicorn29/chromebrew" target="_blank">wicorn29/chromebrew</a><br>
+            and download the Chromebrew updater to update.
+          </div>
+          Decrypting your current Chromebrew...
+        `;
+        await new Promise(r=>setTimeout(r,2500)); // show message 2.5s
+      }
+    } catch(e){
+      console.warn("Version check failed",e);
+    }
+
+    // Launch decoded page
+    document.open();
+    document.write(decoded);
+    document.close();
+
+  },50);
+})();
+</script>
+</body>
+</html>
